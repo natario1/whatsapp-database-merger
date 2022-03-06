@@ -1,17 +1,22 @@
 # whatsapp-database-merger
 
-A small utility that can be used to merge multiple WhatsApp databases (`msgstore.db`) into one.
+A small command-line utility that can be used to merge multiple WhatsApp databases (`msgstore.db`) into one.
 A few notes:
 - input databases must be already decrypted
-- output database will also be in decrypted form.
-  To use it, it must either be moved to `/data/data/com.whatsapp/databases` on a rooted phone,
+- output database will also be in decrypted form. To use it, it must either be moved to `/data/data/com.whatsapp/databases` on a rooted phone,
   or otherwise encrypted again and restored as usual.
-- Java 11 is required to run the program.
-- this is a JVM tool that must be compiled. You can just `./gradlew build` or use the IntelliJ run
-  configuration that is checked into source code.
-- The only argument required is a path to a directory on your local machine. For example,
-  if `mydir` is specified, the program expects all input databases in `mydir/input` and will create
-  output in `mydir/output/msgstore.db`.
+- Java 11 should be installed to build and run the program.
+
+### Usage
+
+You can either build the tool yourself or download the binary from the [releases page](https://github.com/natario1/whatsapp-database-merger/releases).
+The tool requires a single argument - a path to a directory on your local machine. For example:
+
+```
+./whatsapp-database-merger ./whatsapp
+```
+
+In this example, the program will look for input databases in the `./whatsapp/input` folder, and will create the merged database in `./whatsapp/output`.
 
 ### How it works
 
@@ -27,7 +32,7 @@ When merging them, extra care is taken:
   referencing them, ensuring consistency of data.
 
 For example, `messages._id` will receive an offset to avoid collision, then the program will also
-modify all other columns pointing to messages, like for example `chat.last_read_message_row_id`.
+modify all other columns pointing to messages, like `chat.last_read_message_row_id`.
 
 ### Known issues
 
@@ -39,6 +44,6 @@ By default, the merger will simply drop thumbnails that it was not able to copy.
 
 ### It doesn't work for me!
 
-I'm sorry. This happened to work for me in March 2022, but I am unlikely to spend time on this utility in the future,
-especially since the database schema can change over time. However, I am happy to review and accept pull requests. 
+I'm sorry. This happened to work for me in March 2022, but I am unlikely to spend too much time on this utility in the future,
+especially since the database schema can change very quickly. However, I am happy to review and accept pull requests. 
 The source code should be very easy to understand.
