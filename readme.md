@@ -13,10 +13,11 @@ You can either build the tool yourself or download the binary from the [releases
 The tool requires a single argument - a path to a directory on your local machine. For example:
 
 ```
-./whatsapp-database-merger ./whatsapp
+./whatsapp-database-merger /Users/Me/Desktop/WhatsApp
 ```
 
-In this example, the program will look for input databases in the `./whatsapp/input` folder, and will create the merged database in `./whatsapp/output`.
+In this example, the program will look for input databases in the `/Users/Me/Desktop/WhatsApp/input` folder, 
+and will create the merged database in `/Users/Me/Desktop/WhatsApp/output`.
 
 ### How it works
 
@@ -28,8 +29,10 @@ The program will merge all relevant tables, not just messages and chats. See `sr
 When merging them, extra care is taken:
 - primary keys, when possible, are given the appropriate offset in order to not collide with existing entries in the other
   database(s).
-- When this happens, we also apply the same offset in every other column of the database that were 
-  referencing them, ensuring consistency of data.
+- When this happens, we also apply the same offset in every other column of the database that were referencing them, 
+  ensuring consistency of data.
+- Special logic addresses the case where entries could not be inserted due to unique constraint defined in the database,
+  in which case all references to the skipped entry will be updated to match the existing entry which prevailed.
 
 For example, `messages._id` will receive an offset to avoid collision, then the program will also
 modify all other columns pointing to messages, like `chat.last_read_message_row_id`.

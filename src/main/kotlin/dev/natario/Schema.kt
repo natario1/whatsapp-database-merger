@@ -20,6 +20,7 @@ sealed class Schema : Iterable<Table> {
         maxBatch: Int = Int.MAX_VALUE,
         dropFailingBatches: Boolean = false,
         abortOnConflict: Boolean = false,
+        timestamp: String? = null
     ) = PropertyDelegateProvider<Schema, ReadOnlyProperty<Schema, Table>> { _, property ->
         val table = Table.newTable(
             name = property.name,
@@ -30,7 +31,8 @@ sealed class Schema : Iterable<Table> {
             excludes = excludes,
             maxBatch = maxBatch,
             dropFailingBatches = dropFailingBatches,
-            abortOnConflict = abortOnConflict
+            abortOnConflict = abortOnConflict,
+            timestamp = timestamp
         ).also {
             tables.add(it)
         }
@@ -46,12 +48,14 @@ sealed class Schema : Iterable<Table> {
 
         val messages_quotes by table(
             hasId = true,
-            selfRefs = listOf("quoted_row_id")
+            selfRefs = listOf("quoted_row_id"),
+            timestamp = "timestamp"
         )
 
         val messages by table(
             hasId = true,
             refs = listOf(Table.Ref("quoted_row_id", messages_quotes)),
+            timestamp = "timestamp"
         )
 
         val messages_vcards by table(
@@ -107,7 +111,8 @@ sealed class Schema : Iterable<Table> {
             hasId = false,
             uniques = listOf(Table.Unique("key_remote_jid", "key_from_me", "key_id")),
             maxBatch = 1,
-            dropFailingBatches = true
+            dropFailingBatches = true,
+            timestamp = "timestamp"
         )
 
         // maybe antispam stuff
@@ -131,7 +136,7 @@ sealed class Schema : Iterable<Table> {
         val user_device_info by table(
             hasId = false,
             refs = listOf(Table.Ref("user_jid_row_id", jid)),
-            uniques = listOf(Table.Unique("user_jid_row_id"))
+            uniques = listOf(Table.Unique("user_jid_row_id")),
         )
 
         val chat by table(

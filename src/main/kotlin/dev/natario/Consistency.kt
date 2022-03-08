@@ -1,6 +1,6 @@
 package dev.natario
 
-fun Database.ensureConsistent(schema: Schema, throwOnFailure: Boolean = true) {
+fun Database.verifyConsistency(schema: Schema, throwOnFailure: Boolean = true) {
     schema.forEach { table ->
         if (table.refs.isEmpty()) return@forEach
         val columns = columns(table.name)
@@ -11,9 +11,6 @@ fun Database.ensureConsistent(schema: Schema, throwOnFailure: Boolean = true) {
             val values: List<String> = entries.mapNotNull { it[index] }
                 .distinct()
                 .filterNot { it == "0" }
-                .also {
-                    // println("VALUES (index=$index):\n$it")
-                }
             val results = count(ref.table.name, "_id in (${values.joinToString()})")
             if (results != values.size.toLong()) {
                 val message = "Database $this is not consistent. Column ${table}.${ref.name} references table ${ref.table}, " +

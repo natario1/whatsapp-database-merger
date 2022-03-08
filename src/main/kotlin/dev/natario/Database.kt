@@ -1,11 +1,7 @@
 package dev.natario
 
-import com.squareup.sqldelight.Transacter
-import com.squareup.sqldelight.TransacterImpl
 import com.squareup.sqldelight.db.SqlCursor
-import com.squareup.sqldelight.db.SqlDriver
 import com.squareup.sqldelight.db.SqlPreparedStatement
-import com.squareup.sqldelight.sqlite.driver.ConnectionManager
 import com.squareup.sqldelight.sqlite.driver.JdbcPreparedStatement
 import com.squareup.sqldelight.sqlite.driver.JdbcSqliteDriver
 import java.nio.file.Path
@@ -39,6 +35,12 @@ class Database(private val path: Path, private val root: Path) {
         ).asSequence()
             .map { it.getString(1)!! }
             .toList()
+    }
+
+    fun delete(table: String, constraint: String? = null): Long {
+        return driver.executeWithRows(
+            sql = listOfNotNull("delete from $table", constraint).joinToString(" where ")
+        )
     }
 
     fun count(table: String, constraint: String? = null): Long {

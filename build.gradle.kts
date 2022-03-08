@@ -14,6 +14,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.4")
     implementation("com.squareup.sqldelight:sqlite-driver:1.5.3")
 }
 

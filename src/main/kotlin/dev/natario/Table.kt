@@ -9,6 +9,7 @@ interface Table {
     val maxBatch: Int
     val dropFailingBatches: Boolean
     val abortOnConflict: Boolean
+    val timestamp: String?
 
     data class Ref(val name: String, val table: Table, val ignoreConsistencyChecks: Boolean = false) {
         init {
@@ -33,6 +34,7 @@ interface Table {
             maxBatch: Int,
             dropFailingBatches: Boolean,
             abortOnConflict: Boolean,
+            timestamp: String?,
         ): Table {
             val refsAndSelfRefs = refs.toMutableList()
             val table = object : Table {
@@ -44,6 +46,7 @@ interface Table {
                 override val maxBatch = maxBatch
                 override val dropFailingBatches = dropFailingBatches
                 override val abortOnConflict = abortOnConflict
+                override val timestamp = timestamp
                 override fun toString() = name
             }
             refsAndSelfRefs.addAll(selfRefs.map { Ref(it, table) })

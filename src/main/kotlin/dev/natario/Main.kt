@@ -1,24 +1,53 @@
 package dev.natario
 
+import kotlinx.cli.ArgParser
+import kotlinx.cli.ArgType
+import kotlinx.cli.default
 import java.nio.file.Path
 import kotlin.io.path.*
 
-fun main(args: Array<String>) {
-    val schema = Schema.March2022
+enum class MergeType {
+    Combine, Append
+}
 
-    if (args.isEmpty()) error("First argument should be the base directory.")
-    val root: Path = Path.of(args.first()).absolute().normalize()
+fun main(args: Array<String>) {
+    val parser = ArgParser("whatsapp-database-merger")
+    val schema = Schema.March2022
+    val dir by parser.argument(
+        type = ArgType.String,
+        fullName = "root",
+        description = "Root directory. Put input databases in <root>/input. Expect output in <root>/output."
+    )
+    val type by parser.option(
+        type = ArgType.Choice<MergeType>(),
+        shortName = "t",
+        description = "Merge type. Use 'combine' for smart conflict detection, 'append' to append rows without modifications (risky)."
+    ).default(MergeType.Combine)
+    val batch by parser.option(
+        type = ArgType.Int,
+        shortName = "b",
+        description = "How many rows to copy per database insert call."
+    ).default(500)
+    parser.parse(args)
+
+    val root = Path.of(dir).absolute().normalize()
     val inputs = root
         .resolve("input")
         .createDirectories()
         .listDirectoryEntries("*.db")
+        .sortedBy { it.name }
         .map { Database(it, root) }
+    /*if (true) {
+        println("[*] SPLITTING")
+        inputs.single().split(schema, minTimestamp = 1646362037426)
+        return
+    }*/
     if (inputs.isEmpty()) error("No inputs found in ${root.resolve("input")}.")
     if (inputs.size == 1) error("Only 1 db found in ${root.resolve("input")}, nothing to merge.")
     println("[*] Input databases:\n${inputs.joinToString("\n") { "\t- $it" }}")
     inputs.forEach {
         println("[*] Checking consistency of $it")
-        it.ensureConsistent(schema)
+        it.verifyConsistency(schema)
     }
 
     val output = root
@@ -29,76 +58,94 @@ fun main(args: Array<String>) {
     println("[*] Output database: $output")
     if (output.exists()) println("\tWARNING! Output database exists, so it will be overwritten.")
 
-    println("[*] Copying ${inputs.first()} to $output}")
+    println("[*] Copying ${inputs.first()} to $output")
     inputs.first().copyTo(output)
 
     val remaining = inputs.drop(1)
     remaining.forEach {
         println("[*] Processing $it")
-        merge(schema = schema, source = it, destination = output)
+        merge(
+            schema = schema,
+            source = it,
+            destination = output,
+            type = type,
+            batch = batch
+        )
     }
 
-    output.ensureConsistent(schema)
+    println("[*] Checking consistency of $output")
+    output.verifyConsistency(schema)
     println("Success.")
 }
 
-private fun merge(schema: Schema, source: Database, destination: Database) {
+private fun merge(schema: Schema, source: Database, destination: Database, type: MergeType, batch: Int) {
     val mappings = mutableMapOf<Table, IdMapping>()
     schema.forEach { table ->
         println("[*] processing table $table")
-        require(source.tables().contains(table.name.lowercase())) {
+        require(source.tables().contains(table.name)) {
             "$source does not contain expected table $table. Unexpected WhatsApp version?"
         }
-        require(destination.tables().contains(table.name.lowercase())) {
+        require(destination.tables().contains(table.name)) {
             "$destination does not contain expected table $table. Unexpected WhatsApp version?"
         }
 
-        val sourceColumns = source.columns(table.name)
+        val sourceData = source.query(table.name).takeIf { it.isNotEmpty() } ?: return@forEach
+        val destData = destination.query(table.name)
+        var sourceColumns = source.columns(table.name)
         val destColumns = destination.columns(table.name)
-        println("\t- $source columns: $sourceColumns")
-        println("\t- $destination columns: $destColumns")
-        require(sourceColumns.toSet() == destColumns.toSet()) {
-            """
-                Table $table mismatch between $source and $destination. Different WhatsApp versions?
-                - $source schema: $sourceColumns
-                - $destination schema: $destColumns
-            """.trimIndent()
+        println("\t- $source: ${sourceData.size} rows, columns: $sourceColumns")
+        println("\t- $destination: ${destData.size} rows, columns: $destColumns")
+
+        if (sourceColumns.toSet() != destColumns.toSet()) {
+            if (destColumns.all { it in sourceColumns }) {
+                println("\tWarning: schema mismatch for table $table. Different WhatsApp version? Trying to go on anyway, ignoring missing columns.")
+                // some source columns are missing in dest. Try processing anyway.
+                val missing = sourceColumns.mapIndexedNotNull { index, s -> index.takeIf { s !in destColumns } }
+                sourceColumns = sourceColumns.filterIndexed { index, s -> index in missing }
+                sourceData.forEach { it.remove(missing) }
+            } else {
+                error("""
+                    Schema mismatch for table $table between $source and $destination. Different WhatsApp versions?
+                    - $source: $sourceColumns
+                    - $destination: $destColumns
+                """.trimIndent()
+                )
+            }
         }
 
-        val sourceData = source.query(table.name)
-        val destData = destination.query(table.name)
-        println("[*] $table: source elements ${sourceData.size}, destination elements ${destData.size}")
-
-        processReferences(
-            columns = sourceColumns,
-            entries = sourceData,
-            table = table,
-            selfReferences = false,
-            getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
-        )
-        if (table.hasId) {
-            computeIdMapping(
-                sourceColumns = sourceColumns,
-                sourceData = sourceData,
-                destColumns = destColumns,
-                destData = destData,
-                table = table
-            ).also {
-                mappings[table] = it
-            }
-            applyIdMapping(
+        if (type == MergeType.Combine) {
+            processReferences(
+                columns = sourceColumns,
                 entries = sourceData,
                 table = table,
-                mapping = mappings[table]!!
+                selfReferences = false, // can't process self references before IdMapping has been computed. Will do later
+                getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
+            )
+            if (table.hasId) {
+                computeIdMapping(
+                    sourceColumns = sourceColumns,
+                    sourceData = sourceData,
+                    destColumns = destColumns,
+                    destData = destData,
+                    table = table
+                ).also {
+                    mappings[table] = it
+                }
+                applyIdMapping(
+                    // TODO: could apply mapping to self references here, instead of having a separate step below.
+                    entries = sourceData,
+                    table = table,
+                    mapping = mappings[table]!!
+                )
+            }
+            processReferences(
+                columns = sourceColumns,
+                entries = sourceData,
+                table = table,
+                selfReferences = true,
+                getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
             )
         }
-        processReferences(
-            columns = sourceColumns,
-            entries = sourceData,
-            table = table,
-            selfReferences = true,
-            getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
-        )
         excludeProblematicColumns(
             data = sourceData,
             table = table,
@@ -109,7 +156,7 @@ private fun merge(schema: Schema, source: Database, destination: Database) {
             columns = sourceColumns,
             data = sourceData,
             destination = destination,
-            batch = 500
+            batch = batch
         )
     }
 }
@@ -136,7 +183,6 @@ private fun insertData(
                 // references of the new entry in the existing database.
                 onConflict = if (table.abortOnConflict) Database.OnConflict.Abort else Database.OnConflict.Skip
             )
-
             processed += entries.size
             inserted += new
             skipped += entries.size - new
@@ -188,7 +234,9 @@ private fun computeIdMapping(
                     dupes++
                 }
             }
-            println("\tWarning: $dupes rows will be skipped because of $table unique constraint on ${unique.names}.")
+            if (dupes > 0) {
+                println("\tWarning: $dupes rows will be skipped because of $table unique constraint on ${unique.names}.")
+            }
         }
     }
     return mapping

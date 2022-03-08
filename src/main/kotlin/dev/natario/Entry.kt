@@ -10,6 +10,12 @@ class Entry(data: List<String?>) {
 
     private val data = data.toMutableList()
 
+    fun remove(indices: List<Int>) {
+        indices.sortedDescending().forEach {
+            data.removeAt(it)
+        }
+    }
+
     override fun toString(): String {
         return toString(false)
     }
