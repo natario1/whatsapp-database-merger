@@ -1,6 +1,12 @@
 package dev.natario
 
+import com.squareup.sqldelight.Transacter
+import com.squareup.sqldelight.TransacterImpl
 import com.squareup.sqldelight.db.SqlCursor
+import com.squareup.sqldelight.db.SqlDriver
+import com.squareup.sqldelight.db.SqlPreparedStatement
+import com.squareup.sqldelight.sqlite.driver.ConnectionManager
+import com.squareup.sqldelight.sqlite.driver.JdbcPreparedStatement
 import com.squareup.sqldelight.sqlite.driver.JdbcSqliteDriver
 import java.nio.file.Path
 import kotlin.io.path.copyTo
@@ -57,17 +63,22 @@ class Database(private val path: Path, private val root: Path) {
             .toList()
     }
 
+    enum class OnConflict { Abort, Replace, Skip }
+
     fun insert(
         table: String,
-        overwrite: Boolean,
+        onConflict: OnConflict,
         columns: List<String>,
         entries: List<Entry>
-    ) {
-        val verb = if (overwrite) "insert or replace" else "insert"
-        driver.execute(
-            identifier = null,
-            sql = "$verb into $table (${columns.joinToString()}) values ${entries.joinToString()}",
-            parameters = 0
+    ): Long {
+        val prefix = if (onConflict == OnConflict.Replace) "insert or replace" else "insert"
+        val suffix = if (onConflict == OnConflict.Skip) "on conflict do nothing" else null
+        return driver.executeWithRows(
+            sql = listOfNotNull(
+                prefix,
+                "into $table (${columns.joinToString()}) values ${entries.joinToString()}",
+                suffix
+            ).joinToString(separator = " "),
         )
     }
 
@@ -81,5 +92,25 @@ class Database(private val path: Path, private val root: Path) {
 
     private fun SqlCursor.asSequence(): Sequence<SqlCursor> = sequence {
         while (next()) yield(this@asSequence)
+    }
+
+    // Can't use super.execute and can't call "select changes()" because after connection is closed
+    // the value is reset. Maybe a SqlDelight transaction might work but it's equally verbose.
+    private fun JdbcSqliteDriver.executeWithRows(
+        sql: String,
+        binders: (SqlPreparedStatement.() -> Unit)? = null
+    ): Long {
+        val (connection, onClose) = connectionAndClose()
+        return try {
+            connection.prepareStatement(sql).use { jdbcStatement ->
+                JdbcPreparedStatement(jdbcStatement)
+                    .apply { if (binders != null) this.binders() }
+                    .execute()
+                // select changes()
+                jdbcStatement.updateCount.toLong()
+            }
+        } finally {
+            onClose()
+        }
     }
 }
