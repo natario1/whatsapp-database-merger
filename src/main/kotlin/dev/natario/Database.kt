@@ -35,10 +35,10 @@ class Database(private val path: Path, private val root: Path) {
             .toList()
     }
 
-    fun count(table: String): Long {
+    fun count(table: String, constraint: String? = null): Long {
         return driver.executeQuery(
             identifier = null,
-            sql = "select count(*) from $table",
+            sql = listOfNotNull("select count(*) from $table", constraint).joinToString(separator = " where "),
             parameters = 0
         ).let {
             require(it.next())
@@ -46,11 +46,11 @@ class Database(private val path: Path, private val root: Path) {
         }
     }
 
-    fun query(table: String): List<Entry> {
+    fun query(table: String, constraint: String? = null): List<Entry> {
         val columns = columns(table)
         return driver.executeQuery(
             identifier = null,
-            sql = "select * from $table",
+            sql = listOfNotNull("select * from $table", constraint).joinToString(separator = " where "),
             parameters = 0
         ).asSequence()
             .map { Entry(it, columns.size) }

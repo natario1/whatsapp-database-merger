@@ -12,8 +12,12 @@ fun main(args: Array<String>) {
         .map { Database(it, root) }
     if (inputs.isEmpty()) error("No inputs found.")
     if (inputs.size == 1) error("Only 1 db found, can't merge.")
-
     println("[*] Input databases:\n${inputs.joinToString("\n") { "\t- $it" }}")
+    inputs.forEach {
+        println("[*] Checking consistency of $it")
+        it.ensureConsistent(throwOnFailure = true)
+    }
+
     val output = root
         .resolve("output")
         .createDirectories()
@@ -30,6 +34,9 @@ fun main(args: Array<String>) {
         println("[*] Processing $it")
         merge(source = it, destination = output)
     }
+
+    output.ensureConsistent(throwOnFailure = true)
+    println("Success.")
 }
 
 private fun merge(source: Database, destination: Database) {
@@ -99,7 +106,6 @@ private fun merge(source: Database, destination: Database) {
             batch = 500
         )
     }
-    println("Success.")
 }
 
 private fun insertData(
@@ -145,9 +151,9 @@ private fun offsetReferencedTables(
     getOffset: (Table) -> Long,
 ) {
     table.refs.forEach {
-        println("[*] $table: editing column ${it.name}, because it references table ${it.table} which was previously edited.")
         val offset = getOffset(it.table)
         val index = columns.indexOf(it.name)
+        println("[*] $table: editing column ${it.name}, because it references table ${it.table} which was previously edited. offset=$offset index=$index")
         data.forEach { entry ->
             entry.getLong(index)?.let { old ->
                 entry.setLong(index, old + offset)
@@ -164,14 +170,14 @@ private fun warnDuplicates(
     table: Table
 ) {
     table.uniques.forEach {
-        val sourceIndex = sourceColumns.indexOf(it.name)
+        /* val sourceIndex = sourceColumns.indexOf(it.name)
         val sourceIds = sourceData.mapNotNull { it[sourceIndex] }
         val destIndex = destColumns.indexOf(it.name)
         val destIds = destData.mapNotNull { it[destIndex] }
         val dupes = sourceIds - destIds
         if (dupes.isNotEmpty()) {
             println("\tWarning: ${dupes.size} rows will be overwritten because of $table.${it.name} unique constraint.")
-        }
+        } */
     }
 }
 
