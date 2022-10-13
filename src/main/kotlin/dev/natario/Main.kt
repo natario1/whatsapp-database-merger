@@ -12,7 +12,7 @@ enum class MergeType {
 
 fun main(args: Array<String>) {
     val parser = ArgParser("whatsapp-database-merger")
-    val schema = Schema.March2022
+    val schema = Schema.October2022
     val dir by parser.argument(
         type = ArgType.String,
         fullName = "root",
