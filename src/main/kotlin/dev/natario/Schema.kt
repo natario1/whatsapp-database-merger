@@ -39,7 +39,230 @@ sealed class Schema : Iterable<Table> {
         ReadOnlyProperty { _, _ -> table }
     }
 
-    // Current schema
+// Current schema
+    object October2022 : Schema() {
+        val jid by table(
+            hasId = true,
+            uniques = listOf(Table.Unique("raw_string")) //has other columns defined as unique together but raw string is the result of their combination
+        )
+
+        val chat by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("jid_row_id", jid),
+                Table.Ref("display_message_row_id", message),
+                Table.Ref("last_message_row_id", message),
+                Table.Ref("last_read_message_row_id", message),
+                // Seen these columns to be inconsistent even in unmodified databases
+                Table.Ref("last_read_receipt_sent_message_row_id", message, ignoreConsistencyChecks = true),
+                Table.Ref("last_important_message_row_id", message, ignoreConsistencyChecks = true),
+                Table.Ref("change_number_notified_message_row_id", message, ignoreConsistencyChecks = true),
+				// New October schema additions
+                Table.Ref("last_read_ephemeral_message_row_id", message),
+				Table.Ref("last_message_reaction_row_id", message),
+				Table.Ref("last_seen_message_reaction_row_id", message),
+				// These are sort_ids just using message as the sort_id there should have same offset
+				Table.Ref("last_read_message_sort_id", message),
+				Table.Ref("display_message_sort_id", message),
+				Table.Ref("last_message_sort_id", message),
+				Table.Ref("last_read_receipt_sent_message_sort_id", message)
+            ),
+            uniques = listOf(Table.Unique("jid_row_id")),
+        )
+
+        val message by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("chat_row_id", chat),
+				Table.Ref("sender_jid_row_id", jid),
+			),
+			selfRefs = listOf("sort_id"),
+			uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
+            timestamp = "timestamp" // do I need to list every column here that contains a timestamp?
+        )
+
+        val message_quoted by table(
+            hasId = false,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("chat_row_id", chat),
+				Table.Ref("parent_message_chat_row_id", chat),
+				Table.Ref("sender_jid_row_id", jid),
+			),
+            timestamp = "timestamp"
+        )
+
+        val message_vcard by table(
+            hasId = true,
+            refs = listOf(Table.Ref("message_row_id", message)),
+			uniques = listOf(Table.Unique("message_row_id", "vcard"))
+        )
+
+        val message_vcard_jid by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("vcard_row_id", message_vcard),
+				Table.Ref("vcard_jid_row_id", jid),
+            ),
+			selfRefs = listOf("vcard_jid_row_id"),
+			uniques = listOf(Table.Unique("vcard_jid_row_id", "vcard_row_id", "message_row_id"))
+        )
+
+        val group_participant_user by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("group_jid_row_id", jid),
+                Table.Ref("user_jid_row_id", jid),
+            ),
+            uniques = listOf(Table.Unique("group_jid_row_id", "user_jid_row_id")),
+        )
+
+        val group_participant_device by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("group_participant_row_id", group_participant_user),
+                Table.Ref("device_jid_row_id", jid),
+            ),
+            uniques = listOf(Table.Unique("group_participant_row_id", "device_jid_row_id")),
+        )
+
+        val group_participants by table(
+            hasId = true,
+            // select * from sqlite_schema where sql like '%group_participant%'. there's an unique index.
+            uniques = listOf(Table.Unique("gjid", "jid")),
+        )
+
+        // reference count for each media
+        val media_refs by table(hasId = true)
+
+        // thumb binary data in March schema - my October one is empty
+        val message_thumbnails by table(
+            hasId = false,
+            uniques = listOf(Table.Unique("key_remote_jid", "key_from_me", "key_id")),
+            maxBatch = 1,
+            dropFailingBatches = true,
+            timestamp = "timestamp"
+        )
+		
+		// Potentially new thumb binary data location in October schema
+		val message_thumbnail by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message)),
+            maxBatch = 1,
+            dropFailingBatches = true
+        )
+
+        // maybe antispam stuff
+        val message_forwarded by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message)),
+            uniques = listOf(Table.Unique("message_row_id")) // not techinically constraint in table but probably no harm
+        )
+
+        val message_link by table(
+            hasId = true,
+            refs = listOf(
+				Table.Ref("chat_row_id", chat),
+				Table.Ref("message_row_id", message)
+			),
+			uniques = listOf(Table.Unique("message_row_id", "link_index")),
+        )
+
+        val message_add_on by table(
+            hasId = true,
+            refs = listOf(
+				Table.Ref("chat_row_id", chat),
+				Table.Ref("sender_jid_row_id", jid),
+				Table.Ref("parent_message_row_id", message)
+			),
+			uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
+        )
+
+        val message_add_on_reaction by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_add_on_row_id", message_add_on)),
+        )
+
+        val message_system by table(
+            hasId = false,
+            refs = listOf(
+				Table.Ref("message_row_id", message)
+			),
+        )
+
+        val message_system_value_change by table(
+            hasId = false,
+            refs = listOf(
+				Table.Ref("message_row_id", message)
+			),
+        )
+
+        val audio_data by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message)),
+            uniques = listOf(Table.Unique("message_row_id")) // not techinically constraint in table but probably no harm
+        )
+
+        val user_device_info by table(
+            hasId = false,
+            refs = listOf(Table.Ref("user_jid_row_id", jid)),
+            uniques = listOf(Table.Unique("user_jid_row_id")),
+			timestamp = "timestamp"
+        )
+
+		val user_device by table(
+            hasId = true,
+            refs = listOf(
+				Table.Ref("user_jid_row_id", jid),
+				Table.Ref("device_jid_row_id", jid)
+				),
+            uniques = listOf(Table.Unique("user_jid_row_id","device_jid_row_id"))
+        )
+
+        val message_media by table(
+            hasId = false,
+            refs = listOf(
+                // Seen these columns to be inconsistent even in unmodified databases
+                Table.Ref("message_row_id", message, ignoreConsistencyChecks = true),
+                Table.Ref("chat_row_id", chat)
+            ),
+            uniques = listOf(Table.Unique("message_row_id")) // not techinically constraint in table but probably no harm
+        )
+
+        val receipt_user by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("receipt_user_jid_row_id", jid)
+            ),
+            uniques = listOf(Table.Unique("message_row_id", "receipt_user_jid_row_id"))
+        )
+
+        val receipt_device by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("receipt_device_jid_row_id", jid)
+            ),
+            uniques = listOf(Table.Unique("message_row_id", "receipt_device_jid_row_id"))
+        )
+		
+		// Would this be unnecessary since it is named orphaned and doesnt refer to a msg
+		val receipt_orphaned by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("chat_row_id", chat),
+				Table.Ref("receipt_device_jid_row_id", jid),
+                Table.Ref("receipt_recipient_jid_row_id", jid, ignoreConsistencyChecks = true)
+            ),
+            uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "receipt_device_jid_row_id", "receipt_recipient_jid_row_id", "status"))
+        )
+
+        val receipts by table(hasId = true)
+    }
+	
+	// Previous schema
     object March2022 : Schema() {
         val jid by table(
             hasId = true,
