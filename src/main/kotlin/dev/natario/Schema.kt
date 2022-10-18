@@ -57,15 +57,15 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("last_read_receipt_sent_message_row_id", message, ignoreConsistencyChecks = true),
                 Table.Ref("last_important_message_row_id", message, ignoreConsistencyChecks = true),
                 Table.Ref("change_number_notified_message_row_id", message, ignoreConsistencyChecks = true),
-				// New October schema additions
+		// New October schema additions
                 Table.Ref("last_read_ephemeral_message_row_id", message),
-				Table.Ref("last_message_reaction_row_id", message),
-				Table.Ref("last_seen_message_reaction_row_id", message),
-				// These are sort_ids just using message as the sort_id there should have same offset
-				Table.Ref("last_read_message_sort_id", message),
-				Table.Ref("display_message_sort_id", message),
-				Table.Ref("last_message_sort_id", message),
-				Table.Ref("last_read_receipt_sent_message_sort_id", message)
+		Table.Ref("last_message_reaction_row_id", message),
+		Table.Ref("last_seen_message_reaction_row_id", message),
+		// These are sort_ids just using message as the sort_id therefore should have same offset
+		Table.Ref("last_read_message_sort_id", message),
+		Table.Ref("display_message_sort_id", message),
+		Table.Ref("last_message_sort_id", message),
+		Table.Ref("last_read_receipt_sent_message_sort_id", message)
             ),
             uniques = listOf(Table.Unique("jid_row_id")),
         )
@@ -74,11 +74,11 @@ sealed class Schema : Iterable<Table> {
             hasId = true,
             refs = listOf(
                 Table.Ref("chat_row_id", chat),
-				Table.Ref("sender_jid_row_id", jid),
-			),
-			selfRefs = listOf("sort_id"),
-			uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
-            timestamp = "timestamp" // do I need to list every column here that contains a timestamp?
+		Table.Ref("sender_jid_row_id", jid),
+		),
+            selfRefs = listOf("sort_id"),
+            uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
+            timestamp = "timestamp"
         )
 
         val message_quoted by table(
@@ -86,16 +86,16 @@ sealed class Schema : Iterable<Table> {
             refs = listOf(
                 Table.Ref("message_row_id", message),
                 Table.Ref("chat_row_id", chat),
-				Table.Ref("parent_message_chat_row_id", chat),
-				Table.Ref("sender_jid_row_id", jid),
-			),
+		Table.Ref("parent_message_chat_row_id", chat),
+		Table.Ref("sender_jid_row_id", jid),
+            ),
             timestamp = "timestamp"
         )
 
         val message_vcard by table(
             hasId = true,
             refs = listOf(Table.Ref("message_row_id", message)),
-			uniques = listOf(Table.Unique("message_row_id", "vcard"))
+            uniques = listOf(Table.Unique("message_row_id", "vcard"))
         )
 
         val message_vcard_jid by table(
@@ -103,10 +103,10 @@ sealed class Schema : Iterable<Table> {
             refs = listOf(
                 Table.Ref("message_row_id", message),
                 Table.Ref("vcard_row_id", message_vcard),
-				Table.Ref("vcard_jid_row_id", jid),
+		Table.Ref("vcard_jid_row_id", jid),
             ),
-			selfRefs = listOf("vcard_jid_row_id"),
-			uniques = listOf(Table.Unique("vcard_jid_row_id", "vcard_row_id", "message_row_id"))
+            selfRefs = listOf("vcard_jid_row_id"),
+            uniques = listOf(Table.Unique("vcard_jid_row_id", "vcard_row_id", "message_row_id"))
         )
 
         val group_participant_user by table(
@@ -172,11 +172,11 @@ sealed class Schema : Iterable<Table> {
         val message_add_on by table(
             hasId = true,
             refs = listOf(
-				Table.Ref("chat_row_id", chat),
-				Table.Ref("sender_jid_row_id", jid),
-				Table.Ref("parent_message_row_id", message)
-			),
-			uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
+            	Table.Ref("chat_row_id", chat),
+           	Table.Ref("sender_jid_row_id", jid),
+            	Table.Ref("parent_message_row_id", message)
+            ),
+            uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
         )
 
         val message_add_on_reaction by table(
@@ -187,14 +187,14 @@ sealed class Schema : Iterable<Table> {
         val message_system by table(
             hasId = false,
             refs = listOf(
-				Table.Ref("message_row_id", message)
-			),
+		Table.Ref("message_row_id", message)
+            ),
         )
 
         val message_system_value_change by table(
             hasId = false,
             refs = listOf(
-				Table.Ref("message_row_id", message)
+		Table.Ref("message_row_id", message)
 			),
         )
 
@@ -208,15 +208,15 @@ sealed class Schema : Iterable<Table> {
             hasId = false,
             refs = listOf(Table.Ref("user_jid_row_id", jid)),
             uniques = listOf(Table.Unique("user_jid_row_id")),
-			timestamp = "timestamp"
+            timestamp = "timestamp"
         )
 
-		val user_device by table(
+	val user_device by table(
             hasId = true,
             refs = listOf(
-				Table.Ref("user_jid_row_id", jid),
-				Table.Ref("device_jid_row_id", jid)
-				),
+		Table.Ref("user_jid_row_id", jid),
+		Table.Ref("device_jid_row_id", jid)
+            ),
             uniques = listOf(Table.Unique("user_jid_row_id","device_jid_row_id"))
         )
 
@@ -249,11 +249,11 @@ sealed class Schema : Iterable<Table> {
         )
 		
 		// Would this be unnecessary since it is named orphaned and doesnt refer to a msg
-		val receipt_orphaned by table(
+	val receipt_orphaned by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("chat_row_id", chat),
-				Table.Ref("receipt_device_jid_row_id", jid),
+		Table.Ref("receipt_device_jid_row_id", jid),
                 Table.Ref("receipt_recipient_jid_row_id", jid, ignoreConsistencyChecks = true)
             ),
             uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "receipt_device_jid_row_id", "receipt_recipient_jid_row_id", "status"))
