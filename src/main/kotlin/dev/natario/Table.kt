@@ -11,10 +11,15 @@ interface Table {
     val abortOnConflict: Boolean
     val timestamp: String?
 
-    data class Ref(val name: String, val table: Table, val ignoreConsistencyChecks: Boolean = false) {
-        init {
-            require(table.hasId) { "Column $name can't reference table $table without _id." }
+    data class Ref(val name: String, private val tableProvider: () -> Table, val ignoreConsistencyChecks: Boolean = false) {
+        val table by lazy {
+            tableProvider().also {
+                require(it.hasId) { "Column $name can't reference table $it without _id." }
+            }
         }
+
+        constructor(name: String, table: Table, ignoreConsistencyChecks: Boolean = false)
+                : this(name, { table }, ignoreConsistencyChecks)
     }
 
     data class Unique(val names: List<String>) {
