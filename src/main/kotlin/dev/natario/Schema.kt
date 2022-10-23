@@ -174,7 +174,7 @@ sealed class Schema : Iterable<Table> {
             hasId = true,
             refs = listOf(
             	Table.Ref("chat_row_id", chat),
-                Table.Ref("sender_jid_row_id", jid),
+                Table.Ref("sender_jid_row_id", jid, ignoreConsistencyChecks = true),//uses -1 instead of 0 for messages from self
             	Table.Ref("parent_message_row_id", message)
             ),
             uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
