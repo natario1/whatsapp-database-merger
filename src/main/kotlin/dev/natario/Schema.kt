@@ -88,8 +88,8 @@ sealed class Schema : Iterable<Table> {
             refs = listOf(
                 Table.Ref("message_row_id", message),
                 Table.Ref("chat_row_id", chat),
-		Table.Ref("parent_message_chat_row_id", chat),
-		Table.Ref("sender_jid_row_id", jid),
+                Table.Ref("parent_message_chat_row_id", chat),
+                Table.Ref("sender_jid_row_id", jid),
             ),
             timestamp = "timestamp"
         )
@@ -105,9 +105,8 @@ sealed class Schema : Iterable<Table> {
             refs = listOf(
                 Table.Ref("message_row_id", message),
                 Table.Ref("vcard_row_id", message_vcard),
-		Table.Ref("vcard_jid_row_id", jid),
+                Table.Ref("vcard_jid_row_id", jid),
             ),
-            selfRefs = listOf("vcard_jid_row_id"),
             uniques = listOf(Table.Unique("vcard_jid_row_id", "vcard_row_id", "message_row_id"))
         )
 
@@ -175,7 +174,7 @@ sealed class Schema : Iterable<Table> {
             hasId = true,
             refs = listOf(
             	Table.Ref("chat_row_id", chat),
-           	Table.Ref("sender_jid_row_id", jid),
+                Table.Ref("sender_jid_row_id", jid),
             	Table.Ref("parent_message_row_id", message)
             ),
             uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
@@ -196,7 +195,7 @@ sealed class Schema : Iterable<Table> {
             refs = listOf(Table.Ref("message_row_id", message)),
         )
 	
-	val message_location by table(
+        val message_location by table(
             hasId = false,
             refs = listOf(
                 Table.Ref("message_row_id", message),
@@ -205,7 +204,7 @@ sealed class Schema : Iterable<Table> {
             uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
         )
 		
-	val message_mentions by table(
+		val message_mentions by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("message_row_id", message),
@@ -214,19 +213,19 @@ sealed class Schema : Iterable<Table> {
             uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
         )
 		
-	//quoted additions,current duplicated of those in message_quoted but with type specific columns
+		//quoted additions,current duplicated of those in message_quoted but with type specific columns
 		
-	val message_quoted_location by table(
+		val message_quoted_location by table(
             hasId = false,
             refs = listOf(Table.Ref("message_row_id", message))
         )
 		
-	val message_quoted_media by table(
+		val message_quoted_media by table(
             hasId = false,
             refs = listOf(Table.Ref("message_row_id", message))
         )
 		
-	val message_quoted_mentions by table(
+		val message_quoted_mentions by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("message_row_id", message),
@@ -235,28 +234,28 @@ sealed class Schema : Iterable<Table> {
             uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
         )
 		
-	val message_quoted_text by table(
+		val message_quoted_text by table(
             hasId = false,
             refs = listOf(Table.Ref("message_row_id", message))
         )
 		
-	val message_quoted_vcard by table(
+		val message_quoted_vcard by table(
             hasId = true,
             refs = listOf(Table.Ref("message_row_id", message)),
             uniques = listOf(Table.Unique("message_row_id", "vcard"))
         )
 		
-	val message_ftsv2_docsize by table(
+		val message_ftsv2_docsize by table(
             hasId = false,
             refs = listOf(Table.Ref("docid", message))
         )
 		
-	val message_ftsv2_content by table(
+		val message_ftsv2_content by table(
             hasId = false,
             refs = listOf(Table.Ref("docid", message))
         )
 		
-	val message_view_once_media by table(
+		val message_view_once_media by table(
             hasId = false,
             refs = listOf(Table.Ref("message_row_id", message))
         )
@@ -312,7 +311,7 @@ sealed class Schema : Iterable<Table> {
         )
 		
         // Would this be unnecessary since it is named orphaned and doesnt refer to a msg
-	val receipt_orphaned by table(
+		val receipt_orphaned by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("chat_row_id", chat, ignoreConsistencyChecks = true),
@@ -324,13 +323,13 @@ sealed class Schema : Iterable<Table> {
 
         val receipts by table(hasId = true)
 	
-	val community_chat by table(
+		val community_chat by table(
             hasId = false,
             refs = listOf(Table.Ref("chat_row_id", chat)),
             timestamp = "last_activity_ts"
         )
 		
-	val call_log by table(
+		val call_log by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("jid_row_id", jid),
@@ -341,7 +340,7 @@ sealed class Schema : Iterable<Table> {
             timestamp = "timestamp"
         )
 		
-	val call_log_participant_v2 by table(
+		val call_log_participant_v2 by table(
             hasId = true,
             refs = listOf(
                 Table.Ref("call_log_row_id", call_log),
