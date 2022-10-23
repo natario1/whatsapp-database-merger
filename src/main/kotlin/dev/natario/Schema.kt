@@ -46,10 +46,36 @@ sealed class Schema : Iterable<Table> {
             uniques = listOf(Table.Unique("raw_string")) //has other columns defined as unique together but raw string is the result of their combination
         )
 
-        val message: Table by table(
+        val chat: Table by table(
             hasId = true,
             refs = listOf(
-                Table.Ref("chat_row_id", { chat }, ignoreConsistencyChecks = true), //All my database had a -1 entry, unsure if this is typical
+                Table.Ref("jid_row_id", jid),
+                Table.Ref("display_message_row_id", { message }),
+                Table.Ref("last_message_row_id", { message }),
+                Table.Ref("last_read_message_row_id", { message }, ignoreConsistencyChecks = true),
+                // Seen these columns to be inconsistent even in unmodified databases
+                Table.Ref("last_read_receipt_sent_message_row_id", { message }, ignoreConsistencyChecks = true),
+                Table.Ref("last_important_message_row_id", { message }, ignoreConsistencyChecks = true),
+                Table.Ref("change_number_notified_message_row_id", { message }, ignoreConsistencyChecks = true),
+                // New October schema additions
+                Table.Ref("last_read_ephemeral_message_row_id", { message }, ignoreConsistencyChecks = true),
+                Table.Ref("last_message_reaction_row_id", { message }, ignoreConsistencyChecks = true),
+                Table.Ref("last_seen_message_reaction_row_id", { message }, ignoreConsistencyChecks = true),
+                // These are sort_ids just using message as the sort_id therefore should have same offset
+                Table.Ref("last_read_message_sort_id", { message }, ignoreConsistencyChecks = true),
+                Table.Ref("display_message_sort_id", { message }),
+                Table.Ref("last_message_sort_id", { message }),
+                Table.Ref("last_read_receipt_sent_message_sort_id", { message }, ignoreConsistencyChecks = true)
+            ),
+            uniques = listOf(Table.Unique("jid_row_id")),
+        )
+	//Typically ConsistencyChecks will fail on 'last read' style messages because you may be missing that msg in an even older database.
+	//Also fails when there is a -1 value there which is not possible for an ID, may be due to corruption?
+	
+        val message by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("chat_row_id", chat, ignoreConsistencyChecks = true), //All my database had a -1 entry, unsure if this is typical
                 Table.Ref("sender_jid_row_id", jid),
 		),
             selfRefs = listOf("sort_id"),
@@ -57,32 +83,6 @@ sealed class Schema : Iterable<Table> {
             timestamp = "timestamp"
         )
 
-        val chat by table(
-            hasId = true,
-            refs = listOf(
-                Table.Ref("jid_row_id", jid),
-                Table.Ref("display_message_row_id", message),
-                Table.Ref("last_message_row_id", message),
-                Table.Ref("last_read_message_row_id", message, ignoreConsistencyChecks = true),
-                // Seen these columns to be inconsistent even in unmodified databases
-                Table.Ref("last_read_receipt_sent_message_row_id", message, ignoreConsistencyChecks = true),
-                Table.Ref("last_important_message_row_id", message, ignoreConsistencyChecks = true),
-                Table.Ref("change_number_notified_message_row_id", message, ignoreConsistencyChecks = true),
-                // New October schema additions
-                Table.Ref("last_read_ephemeral_message_row_id", message, ignoreConsistencyChecks = true),
-                Table.Ref("last_message_reaction_row_id", message, ignoreConsistencyChecks = true),
-                Table.Ref("last_seen_message_reaction_row_id", message, ignoreConsistencyChecks = true),
-                // These are sort_ids just using message as the sort_id therefore should have same offset
-                Table.Ref("last_read_message_sort_id", message, ignoreConsistencyChecks = true),
-                Table.Ref("display_message_sort_id", message),
-                Table.Ref("last_message_sort_id", message),
-                Table.Ref("last_read_receipt_sent_message_sort_id", message, ignoreConsistencyChecks = true)
-            ),
-            uniques = listOf(Table.Unique("jid_row_id")),
-        )
-	//Typically ConsistencyChecks will fail on 'last read' style messages because you may be missing that msg in an even older database.
-	//Also fails when there is a -1 value there which is not possible for an ID, may be due to corruption?
-	
         val message_quoted by table(
             hasId = false,
             refs = listOf(
