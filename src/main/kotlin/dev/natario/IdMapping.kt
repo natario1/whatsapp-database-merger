@@ -11,6 +11,6 @@ class IdMapping(val offset: Long) {
     }
 
     operator fun get(id: Long): Long {
-        return extraMappings[id] ?: (id + offset)
+        return extraMappings[id] ?: (id + offset + 1)
     }
 }
