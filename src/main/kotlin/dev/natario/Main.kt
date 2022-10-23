@@ -80,84 +80,228 @@ fun main(args: Array<String>) {
 
 private fun merge(schema: Schema, source: Database, destination: Database, type: MergeType, batch: Int) {
     val mappings = mutableMapOf<Table, IdMapping>()
+    //Process jid that has no dependencies
     schema.forEach { table ->
-        println("[*] processing table $table")
-        require(source.tables().contains(table.name)) {
-            "$source does not contain expected table $table. Unexpected WhatsApp version?"
-        }
-        require(destination.tables().contains(table.name)) {
-            "$destination does not contain expected table $table. Unexpected WhatsApp version?"
-        }
-
-        val sourceData = source.query(table.name).takeIf { it.isNotEmpty() } ?: return@forEach
-        val destData = destination.query(table.name)
-        var sourceColumns = source.columns(table.name)
-        val destColumns = destination.columns(table.name)
-        println("\t- $source: ${sourceData.size} rows, columns: $sourceColumns")
-        println("\t- $destination: ${destData.size} rows, columns: $destColumns")
-
-        if (sourceColumns.toSet() != destColumns.toSet()) {
-            if (destColumns.all { it in sourceColumns }) {
-                println("\tWarning: schema mismatch for table $table. Different WhatsApp version? Trying to go on anyway, ignoring missing columns.")
-                // some source columns are missing in dest. Try processing anyway.
-                val missing = sourceColumns.mapIndexedNotNull { index, s -> index.takeIf { s !in destColumns } }
-                sourceColumns = sourceColumns.filterIndexed { index, s -> index in missing }
-                sourceData.forEach { it.remove(missing) }
-            } else {
-                error("""
-                    Schema mismatch for table $table between $source and $destination. Different WhatsApp versions?
-                    - $source: $sourceColumns
-                    - $destination: $destColumns
-                """.trimIndent()
-                )
+	    if ( table.name == "jid" ) {
+            println("[*] processing table $table")
+            require(source.tables().contains(table.name)) {
+                "$source does not contain expected table $table. Unexpected WhatsApp version?"
             }
-        }
+            require(destination.tables().contains(table.name)) {
+                "$destination does not contain expected table $table. Unexpected WhatsApp version?"
+            }
 
-        if (type == MergeType.Combine) {
-            processReferences(
-                columns = sourceColumns,
-                entries = sourceData,
-                table = table,
-                selfReferences = false, // can't process self references before IdMapping has been computed. Will do later
-                getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
-            )
-            if (table.hasId) {
-                computeIdMapping(
-                    sourceColumns = sourceColumns,
-                    sourceData = sourceData,
-                    destColumns = destColumns,
-                    destData = destData,
-                    table = table
-                ).also {
-                    mappings[table] = it
+            val sourceData = source.query(table.name).takeIf { it.isNotEmpty() } ?: return@forEach
+            val destData = destination.query(table.name)
+            var sourceColumns = source.columns(table.name)
+            val destColumns = destination.columns(table.name)
+            println("\t- $source: ${sourceData.size} rows, columns: $sourceColumns")
+            println("\t- $destination: ${destData.size} rows, columns: $destColumns")
+
+            if (sourceColumns.toSet() != destColumns.toSet()) {
+                if (destColumns.all { it in sourceColumns }) {
+                    println("\tWarning: schema mismatch for table $table. Different WhatsApp version? Trying to go on anyway, ignoring missing columns.")
+                    // some source columns are missing in dest. Try processing anyway.
+                    val missing = sourceColumns.mapIndexedNotNull { index, s -> index.takeIf { s !in destColumns } }
+                    sourceColumns = sourceColumns.filterIndexed { index, s -> index in missing }
+                    sourceData.forEach { it.remove(missing) }
+                } else {
+                    error("""
+                        Schema mismatch for table $table between $source and $destination. Different WhatsApp versions?
+                        - $source: $sourceColumns
+                        - $destination: $destColumns
+                    """.trimIndent()
+                    )
                 }
-                applyIdMapping(
-                    // TODO: could apply mapping to self references here, instead of having a separate step below.
+            }
+
+            if (type == MergeType.Combine) {
+		    	processReferences(
+                    columns = sourceColumns,
                     entries = sourceData,
                     table = table,
-                    mapping = mappings[table]!!
+                    selfReferences = false, // can't process self references before IdMapping has been computed. Will do later
+                    getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
+                )
+                if (table.hasId) {
+                    computeIdMapping(
+                        sourceColumns = sourceColumns,
+                        sourceData = sourceData,
+                        destColumns = destColumns,
+                        destData = destData,
+                        table = table
+                    ).also {
+                        mappings[table] = it
+                    }
+                    applyIdMapping(
+                        // TODO: could apply mapping to self references here, instead of having a separate step below.
+                        entries = sourceData,
+                        table = table,
+                        mapping = mappings[table]!!
+                    )
+                }
+                processReferences(
+                    columns = sourceColumns,
+                    entries = sourceData,
+                    table = table,
+                    selfReferences = true,
+                    getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
                 )
             }
-            processReferences(
-                columns = sourceColumns,
-                entries = sourceData,
-                table = table,
-                selfReferences = true,
-                getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
-            )
-        }
-        excludeProblematicColumns(
+            excludeProblematicColumns(
             data = sourceData,
             table = table,
             columns = sourceColumns
-        )
-        insertData(
-            table = table,
-            columns = sourceColumns,
+            )
+            insertData(
+                table = table,
+                columns = sourceColumns,
+                data = sourceData,
+                destination = destination,
+                batch = batch
+            )
+	    }
+    }
+    //Map message table so chat table can be processed
+	schema.forEach { table ->
+	    if ( table.name == "message" ) {
+            println("[*] processing table $table")
+            require(source.tables().contains(table.name)) {
+                "$source does not contain expected table $table. Unexpected WhatsApp version?"
+            }
+            require(destination.tables().contains(table.name)) {
+                "$destination does not contain expected table $table. Unexpected WhatsApp version?"
+            }
+
+            val sourceData = source.query(table.name).takeIf { it.isNotEmpty() } ?: return@forEach
+            val destData = destination.query(table.name)
+            var sourceColumns = source.columns(table.name)
+            val destColumns = destination.columns(table.name)
+            println("\t- $source: ${sourceData.size} rows, columns: $sourceColumns")
+            println("\t- $destination: ${destData.size} rows, columns: $destColumns")
+
+            if (sourceColumns.toSet() != destColumns.toSet()) {
+                if (destColumns.all { it in sourceColumns }) {
+                    println("\tWarning: schema mismatch for table $table. Different WhatsApp version? Trying to go on anyway, ignoring missing columns.")
+                    // some source columns are missing in dest. Try processing anyway.
+                    val missing = sourceColumns.mapIndexedNotNull { index, s -> index.takeIf { s !in destColumns } }
+                    sourceColumns = sourceColumns.filterIndexed { index, s -> index in missing }
+                    sourceData.forEach { it.remove(missing) }
+                } else {
+                    error("""
+                        Schema mismatch for table $table between $source and $destination. Different WhatsApp versions?
+                        - $source: $sourceColumns
+                        - $destination: $destColumns
+                    """.trimIndent()
+                    )
+                }
+            }
+
+            if (type == MergeType.Combine) {
+		    	
+                if (table.hasId) {
+                    computeIdMapping(
+                        sourceColumns = sourceColumns,
+                        sourceData = sourceData,
+                        destColumns = destColumns,
+                        destData = destData,
+                        table = table
+                    ).also {
+                        mappings[table] = it
+                    }
+                    applyIdMapping(
+                        // TODO: could apply mapping to self references here, instead of having a separate step below.
+                        entries = sourceData,
+                        table = table,
+                        mapping = mappings[table]!!
+                    )
+                }
+                
+            }
+            
+	    }
+    }
+    //Now process all non jid table, should start with chat
+	schema.forEach { table ->
+	    if ( table.name != "jid" ) {
+            println("[*] processing table $table")
+            require(source.tables().contains(table.name)) {
+                "$source does not contain expected table $table. Unexpected WhatsApp version?"
+            }
+            require(destination.tables().contains(table.name)) {
+                "$destination does not contain expected table $table. Unexpected WhatsApp version?"
+            }
+
+            val sourceData = source.query(table.name).takeIf { it.isNotEmpty() } ?: return@forEach
+            val destData = destination.query(table.name)
+            var sourceColumns = source.columns(table.name)
+            val destColumns = destination.columns(table.name)
+            println("\t- $source: ${sourceData.size} rows, columns: $sourceColumns")
+            println("\t- $destination: ${destData.size} rows, columns: $destColumns")
+
+            if (sourceColumns.toSet() != destColumns.toSet()) {
+                if (destColumns.all { it in sourceColumns }) {
+                    println("\tWarning: schema mismatch for table $table. Different WhatsApp version? Trying to go on anyway, ignoring missing columns.")
+                    // some source columns are missing in dest. Try processing anyway.
+                    val missing = sourceColumns.mapIndexedNotNull { index, s -> index.takeIf { s !in destColumns } }
+                    sourceColumns = sourceColumns.filterIndexed { index, s -> index in missing }
+                    sourceData.forEach { it.remove(missing) }
+                } else {
+                    error("""
+                        Schema mismatch for table $table between $source and $destination. Different WhatsApp versions?
+                        - $source: $sourceColumns
+                        - $destination: $destColumns
+                    """.trimIndent()
+                    )
+                }
+            }
+
+            if (type == MergeType.Combine) {
+		    	processReferences(
+                    columns = sourceColumns,
+                    entries = sourceData,
+                    table = table,
+                    selfReferences = false, // can't process self references before IdMapping has been computed. Will do later
+                    getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
+                )
+                if (table.hasId) {
+                    computeIdMapping(
+                        sourceColumns = sourceColumns,
+                        sourceData = sourceData,
+                        destColumns = destColumns,
+                        destData = destData,
+                        table = table
+                    ).also {
+                        mappings[table] = it
+                    }
+                    applyIdMapping(
+                        // TODO: could apply mapping to self references here, instead of having a separate step below.
+                        entries = sourceData,
+                        table = table,
+                        mapping = mappings[table]!!
+                    )
+                }
+                processReferences(
+                    columns = sourceColumns,
+                    entries = sourceData,
+                    table = table,
+                    selfReferences = true,
+                    getMapping = { requireNotNull(mappings[it]) { "Table $table depends on $it but mapping was not computed." } },
+                )
+            }
+            excludeProblematicColumns(
             data = sourceData,
-            destination = destination,
-            batch = batch
-        )
+            table = table,
+            columns = sourceColumns
+            )
+            insertData(
+                table = table,
+                columns = sourceColumns,
+                data = sourceData,
+                destination = destination,
+                batch = batch
+            )
+	    }
     }
 }
 
