@@ -326,7 +326,7 @@ sealed class Schema : Iterable<Table> {
 	
 	val community_chat by table(
             hasId = false,
-            refs = listOf(Table.Ref("chat_row_id", chat))
+            refs = listOf(Table.Ref("chat_row_id", chat)),
             timestamp = "last_activity_ts"
         )
 		
@@ -337,8 +337,8 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("group_jid_row_id", jid),
                 Table.Ref("call_creator_device_jid_row_id", jid),
             ),
-            uniques = listOf(Table.Unique("jid_row_id", "from_me", "call_id", "transaction_id"))
-			timestamp = "timestamp"
+            uniques = listOf(Table.Unique("jid_row_id", "from_me", "call_id", "transaction_id")),
+            timestamp = "timestamp"
         )
 		
 	val call_log_participant_v2 by table(
@@ -347,8 +347,8 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("call_log_row_id", call_log),
                 Table.Ref("jid_row_id", jid)
             ),
-            uniques = listOf(Table.Unique("call_log_row_id", "jid_row_id"))
-			timestamp = "timestamp"
+            uniques = listOf(Table.Unique("call_log_row_id", "jid_row_id")),
+            timestamp = "timestamp"
         )
     }
 	
