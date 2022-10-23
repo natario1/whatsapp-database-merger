@@ -45,6 +45,9 @@ how many concatenation operations it can handle for a single statement.
 
 By default, the merger will simply drop thumbnails that it was not able to copy.
 
+This version makes it easier for the user to search for the entries in `message` table that should have a `sender_jid_row` of 0 by searching for the id that will be reported as missing in the output consistency check. They can then fix it if they like.
+The user needs to change the `sort_id` for the first line in `message` table to 1 from 0, otherwise you will not get the full output consistency check as it will fail on this column.
+
 ### It doesn't work for me!
 
 I'm sorry. This happened to work for me in March 2022, but I am unlikely to spend too much time on this utility in the future,
