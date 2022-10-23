@@ -76,7 +76,7 @@ sealed class Schema : Iterable<Table> {
             hasId = true,
             refs = listOf(
                 Table.Ref("chat_row_id", chat, ignoreConsistencyChecks = true), //All my database had a -1 entry, unsure if this is typical
-                Table.Ref("sender_jid_row_id", jid),
+                Table.Ref("sender_jid_row_id", jid, ignoreConsistencyChecks = true),
 		),
             selfRefs = listOf("sort_id"),
             uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
