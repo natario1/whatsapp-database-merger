@@ -195,6 +195,71 @@ sealed class Schema : Iterable<Table> {
             hasId = false,
             refs = listOf(Table.Ref("message_row_id", message)),
         )
+	
+	val message_location by table(
+            hasId = false,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("chat_row_id", chat)
+            ),
+            uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
+        )
+		
+	val message_mentions by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("jid_row_id", jid)
+            ),
+            uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
+        )
+		
+	//quoted additions,current duplicated of those in message_quoted but with type specific columns
+		
+	val message_quoted_location by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message))
+        )
+		
+	val message_quoted_media by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message))
+        )
+		
+	val message_quoted_mentions by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("message_row_id", message),
+                Table.Ref("jid_row_id", jid)
+            ),
+            uniques = listOf(Table.Unique("message_row_id", "jid_row_id"))
+        )
+		
+	val message_quoted_text by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message))
+        )
+		
+	val message_quoted_vcard by table(
+            hasId = true,
+            refs = listOf(Table.Ref("message_row_id", message)),
+            uniques = listOf(Table.Unique("message_row_id", "vcard"))
+        )
+		
+	val message_ftsv2_docsize by table(
+            hasId = false,
+            refs = listOf(Table.Ref("docid", message))
+        )
+		
+	val message_ftsv2_content by table(
+            hasId = false,
+            refs = listOf(Table.Ref("docid", message))
+        )
+		
+	val message_view_once_media by table(
+            hasId = false,
+            refs = listOf(Table.Ref("message_row_id", message))
+        )
 
         val audio_data by table(
             hasId = false,
@@ -258,6 +323,33 @@ sealed class Schema : Iterable<Table> {
         )
 
         val receipts by table(hasId = true)
+	
+	val community_chat by table(
+            hasId = false,
+            refs = listOf(Table.Ref("chat_row_id", chat))
+            timestamp = "last_activity_ts"
+        )
+		
+	val call_log by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("jid_row_id", jid),
+                Table.Ref("group_jid_row_id", jid),
+                Table.Ref("call_creator_device_jid_row_id", jid),
+            ),
+            uniques = listOf(Table.Unique("jid_row_id", "from_me", "call_id", "transaction_id"))
+			timestamp = "timestamp"
+        )
+		
+	val call_log_participant_v2 by table(
+            hasId = true,
+            refs = listOf(
+                Table.Ref("call_log_row_id", call_log),
+                Table.Ref("jid_row_id", jid)
+            ),
+            uniques = listOf(Table.Unique("call_log_row_id", "jid_row_id"))
+			timestamp = "timestamp"
+        )
     }
 	
 	// Previous schema
