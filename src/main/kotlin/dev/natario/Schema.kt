@@ -40,6 +40,7 @@ sealed class Schema : Iterable<Table> {
     }
 
 // Current schema
+// WhatsApp msgstore schema version c198bc7f49ed2861d3ff31f04720c2a7
     object October2022 : Schema() {
         val jid by table(
             hasId = true,
