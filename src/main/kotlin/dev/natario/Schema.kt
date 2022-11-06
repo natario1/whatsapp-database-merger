@@ -69,6 +69,7 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("last_read_receipt_sent_message_sort_id", { message }, ignoreConsistencyChecks = true)
             ),
             uniques = listOf(Table.Unique("jid_row_id")),
+            timestamp = "created_timestamp"
         )
 	//Typically ConsistencyChecks will fail on 'last read' style messages because you may be missing that msg in an even older database.
 	//Also fails when there is a -1 value there which is not possible for an ID, may be due to corruption?
@@ -136,7 +137,10 @@ sealed class Schema : Iterable<Table> {
         )
 
         // reference count for each media
-        val media_refs by table(hasId = true)
+        val media_refs by table(
+            hasId = true,
+            uniques = listOf(Table.Unique("path")),
+        )
 
         // thumb binary data in March schema - my October one is empty
         val message_thumbnails by table(
@@ -179,11 +183,13 @@ sealed class Schema : Iterable<Table> {
             	Table.Ref("parent_message_row_id", message)
             ),
             uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "sender_jid_row_id")),
+            timestamp = "timestamp"
         )
 
         val message_add_on_reaction by table(
             hasId = false,
             refs = listOf(Table.Ref("message_add_on_row_id", message_add_on)),
+            timestamp = "sender_timestamp"
         )
 
         val message_system by table(
@@ -299,7 +305,8 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("message_row_id", message),
                 Table.Ref("receipt_user_jid_row_id", jid)
             ),
-            uniques = listOf(Table.Unique("message_row_id", "receipt_user_jid_row_id"))
+            uniques = listOf(Table.Unique("message_row_id", "receipt_user_jid_row_id")),
+            timestamp = "receipt_timestamp"
         )
 
         val receipt_device by table(
@@ -308,7 +315,8 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("message_row_id", message),
                 Table.Ref("receipt_device_jid_row_id", jid)
             ),
-            uniques = listOf(Table.Unique("message_row_id", "receipt_device_jid_row_id"))
+            uniques = listOf(Table.Unique("message_row_id", "receipt_device_jid_row_id")),
+            timestamp = "receipt_device_timestamp"
         )
 		
         // Would this be unnecessary since it is named orphaned and doesnt refer to a msg
@@ -319,10 +327,14 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("receipt_device_jid_row_id", jid, ignoreConsistencyChecks = true),
                 Table.Ref("receipt_recipient_jid_row_id", jid, ignoreConsistencyChecks = true)
             ),
-            uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "receipt_device_jid_row_id", "receipt_recipient_jid_row_id", "status"))
+            uniques = listOf(Table.Unique("chat_row_id", "from_me", "key_id", "receipt_device_jid_row_id", "receipt_recipient_jid_row_id", "status")),
+            timestamp = "timestamp"
         )
 
-        val receipts by table(hasId = true)
+        val receipts by table(
+            hasId = true,
+            timestamp = "receipt_device_timestamp"
+        )
 	
 		val community_chat by table(
             hasId = false,
@@ -347,8 +359,7 @@ sealed class Schema : Iterable<Table> {
                 Table.Ref("call_log_row_id", call_log),
                 Table.Ref("jid_row_id", jid)
             ),
-            uniques = listOf(Table.Unique("call_log_row_id", "jid_row_id")),
-            timestamp = "timestamp"
+            uniques = listOf(Table.Unique("call_log_row_id", "jid_row_id"))
         )
     }
 	
