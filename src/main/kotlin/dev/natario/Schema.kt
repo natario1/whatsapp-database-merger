@@ -106,7 +106,7 @@ sealed class Schema : Iterable<Table> {
             hasId = true,
             refs = listOf(
                 Table.Ref("message_row_id", message),
-                Table.Ref("vcard_row_id", message_vcard),
+                Table.Ref("vcard_row_id", message_vcard, ignoreConsistencyChecks = true), //Reported database had a -1 entry, unsure if this is typical
                 Table.Ref("vcard_jid_row_id", jid),
             ),
             uniques = listOf(Table.Unique("vcard_jid_row_id", "vcard_row_id", "message_row_id"))
